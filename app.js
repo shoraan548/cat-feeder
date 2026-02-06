@@ -75,17 +75,6 @@ async function register() {
 
   const userId = data.user.id;
 
-  // добавляем пользователя в members
-  const { error: memberError } = await supa
-    .from("members")
-    .insert({ user_id: userId });
-
-  if (memberError) {
-    log("Ошибка добавления в members: " + memberError.message);
-    alert(memberError.message);
-    return;
-  }
-
   log("Регистрация завершена ✅");
 }
 
