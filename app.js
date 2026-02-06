@@ -77,3 +77,57 @@ document.getElementById("loadCatsBtn").addEventListener("click", loadCats);
 // ================== START ==================
 initAuthListener();
 log("Страница загружена");
+
+// ================== CATS ==================
+
+async function loadCats() {
+  const { data, error } = await supa
+    .from("cats")
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  const list = document.getElementById("catsList");
+
+  if (error) {
+    list.textContent = "Ошибка: " + error.message;
+    return;
+  }
+
+  if (!data.length) {
+    list.textContent = "Котов пока нет";
+    return;
+  }
+
+  list.textContent = data
+    .map(c => `🐱 ${c.name}\n  🥣 ${c.dry_limit} г  🥫 ${c.wet_limit} г`)
+    .join("\n\n");
+}
+
+async function addCat() {
+  const name = document.getElementById("catName").value.trim();
+  const dry = parseInt(document.getElementById("dryLimit").value, 10);
+  const wet = parseInt(document.getElementById("wetLimit").value, 10);
+
+  if (!name || isNaN(dry) || isNaN(wet)) {
+    alert("Заполни имя и нормы");
+    return;
+  }
+
+  const { error } = await supa.from("cats").insert({
+    name,
+    dry_limit: dry,
+    wet_limit: wet
+  });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  document.getElementById("catName").value = "";
+  document.getElementById("dryLimit").value = "";
+  document.getElementById("wetLimit").value = "";
+
+  loadCats();
+}
+
