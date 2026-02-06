@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Кормление кота</title>
 </head>
 <body>
@@ -9,17 +10,20 @@
 <h1>🐱 Кормление кота</h1>
 
 <div id="auth">
-  <input id="email" type="email" placeholder="Email">
-  <button onclick="login()">Войти</button>
+  <input id="email" type="email" placeholder="Email" />
+  <button id="loginBtn">Войти</button>
+  <pre id="log"></pre>
 </div>
 
 <div id="app" style="display:none">
   <p>Вы вошли 🎉</p>
-  <button onclick="loadCats()">Загрузить котов</button>
+  <button id="loadCatsBtn">Загрузить котов</button>
   <pre id="output"></pre>
 </div>
 
+<!-- СНАЧАЛА Supabase -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- ПОТОМ наш код -->
 <script src="app.js"></script>
 
 </body>
