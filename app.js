@@ -56,6 +56,7 @@ function initAuthListener() {
     if (session) {
       authBlock.style.display = "none";
       appBlock.style.display = "block";
+      loadCats(); // ← добавь это
     }
   });
 }
@@ -73,6 +74,7 @@ async function loadCats() {
 // ================== EVENTS ==================
 document.getElementById("loginBtn").addEventListener("click", login);
 document.getElementById("loadCatsBtn").addEventListener("click", loadCats);
+document.getElementById("addCatBtn").addEventListener("click", addCat);
 
 // ================== START ==================
 initAuthListener();
