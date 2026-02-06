@@ -3,19 +3,19 @@ const SUPABASE_URL = "PASTE_SUPABASE_URL";
 const SUPABASE_ANON_KEY = "PASTE_PUBLIC_ANON_KEY";
 const REDIRECT_URL = "https://shoraan548.github.io/cat-feeder/";
 
-// ================== ПРОВЕРКИ ==================
+// ================== ПРОВЕРКА CDN ==================
 if (!window.supabase) {
   alert("Supabase CDN не загрузился");
   throw new Error("Supabase CDN not loaded");
 }
 
-// ⚠️ ВАЖНО: НЕ называем переменную supabase
+// ⚠️ не называем переменную supabase
 const supa = window.supabase.createClient(
   SUPABASE_URL,
   SUPABASE_ANON_KEY
 );
 
-// ================== UI ==================
+// ================== DOM ==================
 const authBlock = document.getElementById("auth");
 const appBlock = document.getElementById("app");
 const logEl = document.getElementById("log");
@@ -37,39 +37,28 @@ async function login() {
 
   const { error } = await supa.auth.signInWithOtp({
     email,
-    options: {
-      emailRedirectTo: REDIRECT_URL
-    }
+    options: { emailRedirectTo: REDIRECT_URL }
   });
 
   if (error) {
     log("Ошибка: " + error.message);
     alert(error.message);
   } else {
-    log("Готово. Проверь почту ✉️");
+    log("Проверь почту ✉️");
     alert("Проверь почту ✉️");
   }
 }
 
 // ================== STATE ==================
-async function checkSession() {
-  const { data } = await supa.auth.getSession();
-  if (data.session) {
-    authBlock.style.display = "none";
-    appBlock.style.display = "block";
-    log("Сессия активна ✅");
-  } else {
-    log("Сессии нет (ок)");
-  }
+function initAuthListener() {
+  supa.auth.onAuthStateChange((event, session) => {
+    log("Auth event: " + event);
+    if (session) {
+      authBlock.style.display = "none";
+      appBlock.style.display = "block";
+    }
+  });
 }
-
-supa.auth.onAuthStateChange((event, session) => {
-  log("Auth event: " + event);
-  if (session) {
-    authBlock.style.display = "none";
-    appBlock.style.display = "block";
-  }
-});
 
 // ================== DATA ==================
 async function loadCats() {
@@ -86,4 +75,5 @@ document.getElementById("loginBtn").addEventListener("click", login);
 document.getElementById("loadCatsBtn").addEventListener("click", loadCats);
 
 // ================== START ==================
-checkSession();
+initAuthListener();
+log("Страница загружена");
