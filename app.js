@@ -1,6 +1,6 @@
 // ================== НАСТРОЙКИ ==================
-const SUPABASE_URL = "PASTE_SUPABASE_URL";
-const SUPABASE_ANON_KEY = "PASTE_PUBLIC_ANON_KEY";
+const SUPABASE_URL = "https://kuixkqezshxqposjchpa.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1aXhrcWV6c2h4cXBvc2pjaHBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzODA1NDAsImV4cCI6MjA4NTk1NjU0MH0.T7u-MqEkjj5Yohwd3Ys8IIgtr13ISxJEF43nrM1nRZg";
 const REDIRECT_URL = "https://shoraan548.github.io/cat-feeder/";
 
 // ================== ПРОВЕРКА CDN ==================
