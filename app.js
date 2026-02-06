@@ -8,10 +8,18 @@ const supabase = supabaseJs.createClient(
 
 async function login() {
   const email = document.getElementById("email").value;
-  if (!email) {
-    alert("Введите email");
-    return;
-  }
+  if (!email) { alert("Введите email"); return; }
+
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: "https://shoraan548.github.io/cat-feeder/"
+    }
+  });
+
+  if (error) alert(error.message);
+  else alert("Проверь почту ✉️");
+}
 
   const { error } = await supabase.auth.signInWithOtp({ email });
   if (error) {
