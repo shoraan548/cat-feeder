@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Кормление кота</title>
+</head>
+<body>
+
+<h1>🐱 Кормление кота</h1>
+
+<div id="auth">
+  <input id="email" type="email" placeholder="Email">
+  <button onclick="login()">Войти</button>
+</div>
+
+<div id="app" style="display:none">
+  <p>Вы вошли 🎉</p>
+  <button onclick="loadCats()">Загрузить котов</button>
+  <pre id="output"></pre>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
+
+</body>
+</html>
