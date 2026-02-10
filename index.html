@@ -4,37 +4,56 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Кормление кота</title>
+  <style>
+    body { font-family: sans-serif; padding: 18px; max-width: 520px; margin: auto; }
+    input, button { width: 100%; padding: 12px; font-size: 16px; margin: 6px 0; box-sizing: border-box; }
+    button { cursor: pointer; }
+    .row { display: flex; gap: 8px; }
+    .row > * { flex: 1; }
+    pre { background: #f6f6f6; padding: 10px; white-space: pre-wrap; border-radius: 10px; }
+    hr { margin: 16px 0; }
+    .muted { opacity: 0.75; }
+  </style>
 </head>
 <body>
 
 <h1>🐱 Кормление кота</h1>
 
 <div id="auth">
-<input id="email" type="email" placeholder="Email" />
-<input id="password" type="password" placeholder="Пароль" />
-
-<button id="loginBtn">Войти</button>
-<button id="registerBtn">Зарегистрироваться</button>
-
-<pre id="log"></pre>
+  <h2>Вход</h2>
+  <input id="username" placeholder="Логин (username)" autocomplete="username" />
+  <input id="password" type="password" placeholder="Пароль" autocomplete="current-password" />
+  <button id="loginBtn">Войти</button>
+  <pre id="log"></pre>
 </div>
 
 <div id="app" style="display:none">
-  <p>Вы вошли 🎉</p>
+  <div class="row">
+    <div>
+      <h2>Привет, <span id="who"></span> 👋</h2>
+      <div class="muted" id="todayLine"></div>
+    </div>
+    <div style="max-width: 160px; align-self: end;">
+      <button id="logoutBtn">Выйти</button>
+    </div>
+  </div>
+
   <hr>
 
-<h2>Кот</h2>
+  <h2>Кот</h2>
+  <pre id="catCard">Загрузка…</pre>
 
-<input id="catName" placeholder="Имя кота" />
-<input id="dryLimit" type="number" placeholder="Сухой, г/день" />
-<input id="wetLimit" type="number" placeholder="Влажный, г/день" />
+  <div class="row">
+    <button id="addDryBtn">🥣 Добавить сухой</button>
+    <button id="addWetBtn">🥫 Добавить влажный</button>
+  </div>
 
-<button id="addCatBtn">Добавить кота</button>
+  <pre id="status"></pre>
 
-<h3>Список котов</h3>
-<pre id="catsList"></pre>
-  <button id="loadCatsBtn">Загрузить котов</button>
-  <pre id="output"></pre>
+  <hr>
+
+  <h3>Список котов (на будущее)</h3>
+  <pre id="catsList">—</pre>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
