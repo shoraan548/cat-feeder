@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Кормление кота</title>
+
   <style>
     body {
       font-family: system-ui, -apple-system, sans-serif;
@@ -11,24 +12,54 @@
       max-width: 520px;
       margin: auto;
     }
+
     input, button {
       width: 100%;
-      padding: 12px;
+      padding: 10px;
       font-size: 16px;
       margin: 6px 0;
       box-sizing: border-box;
     }
+
     button { cursor: pointer; }
-    .row { display: flex; gap: 8px; }
-    .row > * { flex: 1; }
-    pre {
-      background: #f6f6f6;
-      padding: 12px;
-      border-radius: 10px;
-      white-space: pre-wrap;
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
     }
-    hr { margin: 18px 0; }
-    .muted { opacity: 0.7; }
+
+    td {
+      padding: 8px;
+      border-bottom: 1px solid #ddd;
+    }
+
+    td.label {
+      opacity: 0.7;
+      width: 55%;
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .row > * { flex: 1; }
+
+    .warning {
+      background: #fff3cd;
+      border: 1px solid #ffeeba;
+      color: #856404;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    .muted {
+      opacity: 0.6;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
@@ -45,32 +76,28 @@
 
 <!-- APP -->
 <div id="app" style="display:none">
-  <div class="row">
-    <div>
-      <h2>Привет, <span id="who"></span> 👋</h2>
-      <div class="muted" id="todayLine"></div>
-    </div>
-    <div style="max-width: 140px; align-self:end">
-      <button id="logoutBtn">Выйти</button>
-    </div>
+  <h2>Привет, <span id="who"></span> 👋</h2>
+  <div class="muted" id="todayLine"></div>
+
+  <div id="fatWarning" class="warning" style="display:none">
+    ⚠️ Осторожно, это путь к жирному коту 😼
   </div>
 
-  <hr>
-
-  <h2>Кот</h2>
-  <pre id="catCard">Загрузка…</pre>
-
-  <div class="row">
-    <button id="addCatBtn">➕ Добавить кота</button>
-    <button id="editCatBtn">✏️ Редактировать</button>
-  </div>
+  <table id="catTable"></table>
 
   <div class="row">
     <button id="addDryBtn">🥣 Сухой</button>
     <button id="addWetBtn">🥫 Влажный</button>
   </div>
 
-  <pre id="status"></pre>
+  <div class="row">
+    <button id="editCatBtn">✏️ Редактировать</button>
+    <button id="addCatBtn">➕ Добавить кота</button>
+  </div>
+
+  <div class="row">
+    <button id="logoutBtn">Выйти</button>
+  </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
