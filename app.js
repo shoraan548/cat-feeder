@@ -1,11 +1,14 @@
 // ================== НАСТРОЙКИ ==================
 const SUPABASE_URL = "https://kuixkqezshxqposjchpa.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1aXhrcWV6c2h4cXBvc2pjaHBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzODA1NDAsImV4cCI6MjA4NTk1NjU0MH0.T7u-MqEkjj5Yohwd3Ys8IIgtr13ISxJEF43nrM1nRZg";
-
-// фиксированная таймзона для всей семьи
 const APP_TIMEZONE = "Europe/Podgorica";
 
-const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supa = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
+
+/* ================= STATE ================= */
 
 let currentCat = null;
 let editingCatId = null;
@@ -40,36 +43,48 @@ async function getProfile() {
   return data;
 }
 
-/* ================= AUTH ================= */
+/* ================= LOGIN ================= */
 
 async function login() {
-  const loginInput = document.getElementById("username").value.trim();
-  const password = document.getElementById("password").value;
+  console.log("LOGIN START");
+
+  const loginInput =
+    document.getElementById("username").value.trim();
+  const password =
+    document.getElementById("password").value;
 
   if (!loginInput || !password) {
     alert("Введите логин и пароль");
     return;
   }
 
-  let email = null;
+  let email;
 
-  // если похоже на email
   if (loginInput.includes("@")) {
     email = loginInput;
   } else {
-    // это username → получаем email через RPC
-    const { data, error } = await supa.rpc(
-      "get_email_by_username",
-      { p_username: loginInput }
-    );
+    console.log("Username login detected");
 
-    if (error || !data) {
+    const { data, error } =
+      await supa.rpc("get_email_by_username", {
+        p_username: loginInput
+      });
+
+    if (error) {
+      console.log("RPC error:", error);
+      alert("Ошибка поиска пользователя");
+      return;
+    }
+
+    if (!data) {
       alert("Пользователь не найден");
       return;
     }
 
     email = data;
   }
+
+  console.log("AUTH EMAIL:", email);
 
   const { error: signError } =
     await supa.auth.signInWithPassword({
@@ -78,31 +93,59 @@ async function login() {
     });
 
   if (signError) {
-    alert("Неверный пароль");
+    console.log("AUTH ERROR:", signError);
+    alert("Неверный логин или пароль");
     return;
   }
 
+  console.log("LOGIN SUCCESS");
   showApp();
 }
+
+/* ================= LOGOUT ================= */
 
 async function logout() {
   await supa.auth.signOut();
   showAuth();
 }
 
-async function sendReset() {
-  const username = document.getElementById("username").value.trim();
-  if (!username) return alert("Введите логин");
+/* ================= PASSWORD RESET ================= */
 
-  await supa.auth.resetPasswordForEmail(
-    `${username}@local`,
-    { redirectTo: window.location.href }
-  );
+async function sendReset() {
+  const loginInput =
+    document.getElementById("username").value.trim();
+
+  if (!loginInput) {
+    alert("Введите email или username");
+    return;
+  }
+
+  let email;
+
+  if (loginInput.includes("@")) {
+    email = loginInput;
+  } else {
+    const { data } =
+      await supa.rpc("get_email_by_username", {
+        p_username: loginInput
+      });
+
+    if (!data) {
+      alert("Пользователь не найден");
+      return;
+    }
+
+    email = data;
+  }
+
+  await supa.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href
+  });
 
   alert("Письмо отправлено");
 }
 
-/* ================= PASSWORD RESET ================= */
+/* ================= PASSWORD RECOVERY FLOW ================= */
 
 function showPasswordResetUI() {
   document.getElementById("auth").style.display = "none";
@@ -111,19 +154,39 @@ function showPasswordResetUI() {
 }
 
 async function saveNewPassword() {
-  const pass1 = document.getElementById("newPasswordInput").value;
-  const pass2 = document.getElementById("confirmPasswordInput").value;
+  const pass1 =
+    document.getElementById("newPasswordInput").value;
+  const pass2 =
+    document.getElementById("confirmPasswordInput").value;
 
-  if (pass1.length < 6) return alert("Минимум 6 символов");
-  if (pass1 !== pass2) return alert("Пароли не совпадают");
+  if (!pass1 || pass1.length < 6) {
+    alert("Минимум 6 символов");
+    return;
+  }
 
-  const { error } = await supa.auth.updateUser({
-    password: pass1
-  });
+  if (pass1 !== pass2) {
+    alert("Пароли не совпадают");
+    return;
+  }
 
-  if (error) return alert("Ошибка обновления");
+  const { error } =
+    await supa.auth.updateUser({
+      password: pass1
+    });
 
-  alert("Пароль обновлён");
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  alert("Пароль успешно изменён");
+
+  window.history.replaceState(
+    {},
+    document.title,
+    window.location.pathname
+  );
+
   await supa.auth.signOut();
 }
 
@@ -195,39 +258,18 @@ async function loadCat() {
   `;
 }
 
-/* ================= EVENTS ================= */
+/* ================= AUTH EVENTS ================= */
 
-document.getElementById("loginBtn").onclick = login;
-document.getElementById("logoutBtn").onclick = logout;
-document.getElementById("forgotBtn").onclick = sendReset;
-document.getElementById("savePasswordBtn").onclick = saveNewPassword;
+supa.auth.onAuthStateChange(async (event) => {
+  console.log("AUTH EVENT:", event);
 
-/* ================= AUTH LISTENER ================= */
-
-async function checkRecoveryFromUrl() {
-  const hash = window.location.hash;
-
-  if (hash.includes("type=recovery")) {
-    showPasswordResetUI();
-    return true;
-  }
-
-  return false;
-}
-
-supa.auth.onAuthStateChange(async (event, session) => {
-
-  if (event === "PASSWORD_RECOVERY") {
+  if (window.location.hash.includes("type=recovery")) {
     showPasswordResetUI();
     return;
   }
 
   if (event === "SIGNED_IN") {
-    const isRecovery = await checkRecoveryFromUrl();
-
-    if (!isRecovery) {
-      showApp();
-    }
+    showApp();
   }
 
   if (event === "SIGNED_OUT") {
@@ -235,11 +277,30 @@ supa.auth.onAuthStateChange(async (event, session) => {
   }
 });
 
+/* ================= EVENTS ================= */
+
+document
+  .getElementById("loginBtn")
+  .addEventListener("click", async (e) => {
+    e.preventDefault();
+    await login();
+  });
+
+document
+  .getElementById("logoutBtn")
+  .addEventListener("click", logout);
+
+document
+  .getElementById("forgotBtn")
+  .addEventListener("click", sendReset);
+
+document
+  .getElementById("savePasswordBtn")
+  .addEventListener("click", saveNewPassword);
+
+/* ================= START ================= */
+
 (async () => {
-  const recoveryHandled = await checkRecoveryFromUrl();
-
-  if (recoveryHandled) return;
-
   const user = await getUser();
   user ? showApp() : showAuth();
 })();
