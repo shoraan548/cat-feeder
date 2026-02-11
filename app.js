@@ -16,13 +16,10 @@ let foodMode = null;
 
 /* ================= HELPERS ================= */
 
-function todayISO() {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: APP_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).format(new Date());
+function todayStartISO() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString();
 }
 
 async function getUser() {
@@ -179,12 +176,8 @@ async function showApp() {
   document.getElementById("app").style.display = "block";
 
   const profile = await getProfile();
-
   document.getElementById("who").textContent =
     profile?.full_name || "Пользователь";
-
-  document.getElementById("todayLine").textContent =
-    `Сегодня: ${todayISO()} (${APP_TIMEZONE})`;
 
   loadCat();
 }
@@ -194,7 +187,7 @@ function showAuth() {
   document.getElementById("app").style.display = "none";
 }
 
-/* ================= CAT ================= */
+/* ================= LOAD CAT ================= */
 
 async function loadCat() {
   const user = await getUser();
@@ -216,16 +209,24 @@ async function loadCat() {
 
   currentCat = data[0];
 
-  const { data: feed } = await supa
-    .from("daily_feeding")
+  const { data: events } = await supa
+    .from("feeding_events")
     .select("*")
     .eq("cat_id", currentCat.id)
-    .eq("date", todayISO())
-    .limit(1);
+    .gte("created_at", todayStartISO())
+    .order("created_at", { ascending: true });
 
-  const usedDry = feed?.[0]?.dry_grams || 0;
-  const usedWet = feed?.[0]?.wet_grams || 0;
-  const lastTime = feed?.[0]?.updated_at;
+  const usedDry = events
+    ?.filter(e => e.food_type === "dry")
+    .reduce((sum, e) => sum + e.grams, 0) || 0;
+
+  const usedWet = events
+    ?.filter(e => e.food_type === "wet")
+    .reduce((sum, e) => sum + e.grams, 0) || 0;
+
+  const lastEvent = events?.length
+    ? events[events.length - 1].created_at
+    : null;
 
   const dryLeft = currentCat.dry_limit - usedDry;
   const wetLeft = currentCat.wet_limit - usedWet;
@@ -238,7 +239,7 @@ async function loadCat() {
     <tr><td class="label">Сухой</td><td>${Math.max(dryLeft,0)} г осталось</td></tr>
     <tr><td class="label">Влажный</td><td>${Math.max(wetLeft,0)} г осталось</td></tr>
     <tr><td class="label">Последняя кормёжка</td>
-    <td>${lastTime ? new Date(lastTime).toLocaleTimeString() : "—"}</td></tr>
+    <td>${lastEvent ? new Date(lastEvent).toLocaleTimeString() : "—"}</td></tr>
   `;
 }
 
@@ -279,16 +280,10 @@ function closeCatModal() {
 async function saveCat() {
   const name =
     document.getElementById("catNameInput").value.trim();
-
-  const dry = parseInt(
-    document.getElementById("catDryInput").value,
-    10
-  );
-
-  const wet = parseInt(
-    document.getElementById("catWetInput").value,
-    10
-  );
+  const dry =
+    parseInt(document.getElementById("catDryInput").value, 10);
+  const wet =
+    parseInt(document.getElementById("catWetInput").value, 10);
 
   if (!name || !dry || !wet) {
     alert("Заполните все поля");
@@ -332,7 +327,7 @@ async function deleteCat() {
   loadCat();
 }
 
-/* ================= FOOD ================= */
+/* ================= FEEDING ================= */
 
 function openFoodModal(mode) {
   if (!currentCat) {
@@ -356,39 +351,26 @@ function closeFoodModal() {
 }
 
 async function saveFood() {
-  const grams = parseInt(
-    document.getElementById("foodGramsInput").value,
-    10
-  );
+  const grams =
+    parseInt(document.getElementById("foodGramsInput").value, 10);
 
   if (!grams || grams <= 0) return;
 
   const user = await getUser();
-  const today = todayISO();
 
-  const { data } = await supa
-    .from("daily_feeding")
-    .select("*")
-    .eq("cat_id", currentCat.id)
-    .eq("date", today)
-    .limit(1);
+  const { error } = await supa
+    .from("feeding_events")
+    .insert({
+      cat_id: currentCat.id,
+      food_type: foodMode,
+      grams: grams,
+      created_by: user.id
+    });
 
-  const dry =
-    (data?.[0]?.dry_grams || 0) +
-    (foodMode === "dry" ? grams : 0);
-
-  const wet =
-    (data?.[0]?.wet_grams || 0) +
-    (foodMode === "wet" ? grams : 0);
-
-  await supa.from("daily_feeding").upsert({
-    cat_id: currentCat.id,
-    date: today,
-    dry_grams: dry,
-    wet_grams: wet,
-    created_by: user.id,
-    updated_at: new Date().toISOString()
-  });
+  if (error) {
+    alert("Ошибка добавления корма");
+    return;
+  }
 
   closeFoodModal();
   loadCat();
