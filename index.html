@@ -5,117 +5,125 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Cat Feeder</title>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script defer src="app.js"></script>
-
 <style>
 body {
-  font-family: sans-serif;
-  max-width: 500px;
+  font-family: system-ui, -apple-system, sans-serif;
+  padding: 18px;
+  max-width: 520px;
   margin: auto;
-  padding: 20px;
 }
-
-h2 { margin-top: 0; }
 
 button {
   padding: 10px;
-  margin: 5px 0;
-  width: 100%;
+  font-size: 16px;
+  cursor: pointer;
 }
 
 .row {
   display: flex;
-  gap: 10px;
+  gap: 8px;
+  margin-top: 10px;
 }
 
-.row button {
-  flex: 1;
-}
+.row > * { flex: 1; }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 
 td {
-  padding: 8px;
+  padding: 10px 6px;
   border-bottom: 1px solid #ddd;
 }
 
-.label {
-  font-weight: bold;
+td.label {
+  opacity: 0.6;
+  width: 55%;
 }
 
-.red {
-  color: red;
-  font-weight: bold;
+.warning {
+  background: #fff3cd;
+  border: 1px solid #ffeeba;
+  color: #856404;
+  padding: 10px;
+  border-radius: 6px;
+  margin-top: 10px;
 }
+
+.muted {
+  opacity: 0.6;
+  font-size: 14px;
+}
+
+/* MODAL */
 
 .modal {
-  display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.4);
-  justify-content: center;
+  background: rgba(0,0,0,0.45);
+  display: none;
   align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
 }
 
 .modal-content {
   background: white;
-  padding: 20px;
-  width: 90%;
-  max-width: 400px;
+  width: 100%;
+  max-width: 420px;
   border-radius: 10px;
+  padding: 16px;
 }
 
-input, select {
+.modal input {
   width: 100%;
-  padding: 8px;
-  margin: 5px 0;
+  padding: 10px;
+  margin: 6px 0 12px 0;
+  font-size: 16px;
+  box-sizing: border-box;
 }
 </style>
 </head>
-
 <body>
 
-<!-- AUTH -->
+<h1>🐱 Кормление кота</h1>
+
 <div id="auth">
   <h2>Вход</h2>
-  <input id="username" placeholder="Email или username" />
+  <input id="username" placeholder="Логин" />
   <input id="password" type="password" placeholder="Пароль" />
   <button id="loginBtn">Войти</button>
-
-  <div style="margin-top:8px;">
-    <span id="forgotBtn"
-      style="font-size:14px;opacity:0.6;cursor:pointer;">
-      Забыли пароль?
-    </span>
-  </div>
+  <button id="forgotBtn">Забыли пароль?</button>
 </div>
 
-<!-- APP -->
-<div id="app" style="display:none;">
-  <h2>🐱 <span id="who"></span></h2>
+<div id="app" style="display:none">
+  <h2>Привет, <span id="who"></span> 👋</h2>
+  <div class="muted" id="todayLine"></div>
 
-  <select id="catSelect"></select>
+  <button id="changeNameBtn">Изменить имя</button>
 
-  <div id="fatWarning" class="red" style="display:none;">
-    Осторожно, это путь к жирному коту 😼
+  <div id="fatWarning" class="warning" style="display:none">
+    ⚠️ Осторожно, это путь к жирному коту 😼
   </div>
 
   <table id="catTable"></table>
 
   <div class="row">
-    <button id="addDryBtn">+ Сухой</button>
-    <button id="addWetBtn">+ Влажный</button>
+    <button id="addDryBtn">🥣 Сухой</button>
+    <button id="addWetBtn">🥫 Влажный</button>
   </div>
 
-  <button id="addCatBtn">Добавить кота</button>
-  <button id="editCatBtn">Редактировать кота</button>
-  <button id="historyBtn">📊 История 6 месяцев</button>
-  <button id="logoutBtn">Выйти</button>
+  <div class="row">
+    <button id="editCatBtn">✏️ Редактировать</button>
+    <button id="addCatBtn">➕ Добавить кота</button>
+  </div>
+
+  <div class="row">
+    <button id="logoutBtn">Выйти</button>
+  </div>
 </div>
 
 <!-- CAT MODAL -->
@@ -125,8 +133,10 @@ input, select {
     <input id="catNameInput" placeholder="Имя кота" />
     <input id="catDryInput" type="number" placeholder="Суточная норма сухого (г)" />
     <input id="catWetInput" type="number" placeholder="Суточная норма влажного (г)" />
-    <button id="saveCatBtn">Сохранить</button>
-    <button id="deleteCatBtn" style="display:none;">Удалить</button>
+    <div class="row">
+      <button id="saveCatBtn">Сохранить</button>
+      <button id="deleteCatBtn">Удалить</button>
+    </div>
     <button id="cancelCatBtn">Отмена</button>
   </div>
 </div>
@@ -135,30 +145,25 @@ input, select {
 <div id="foodModal" class="modal">
   <div class="modal-content">
     <h3 id="foodModalTitle"></h3>
-    <input id="foodGramsInput" type="number" placeholder="Граммы" />
-    <button id="saveFoodBtn">Добавить</button>
-    <button id="cancelFoodBtn">Отмена</button>
+    <input id="foodGramsInput" type="number" placeholder="Сколько грамм?" />
+    <div class="row">
+      <button id="saveFoodBtn">Добавить</button>
+      <button id="cancelFoodBtn">Отмена</button>
+    </div>
   </div>
 </div>
 
-<!-- HISTORY MODAL -->
-<div id="historyModal" class="modal">
-  <div class="modal-content">
-    <h3>История за 6 месяцев</h3>
-    <div id="historyContent"></div>
-    <button id="closeHistoryBtn">Закрыть</button>
-  </div>
-</div>
-
-<!-- RESET PASSWORD MODAL -->
+<!-- RESET MODAL -->
 <div id="resetModal" class="modal">
   <div class="modal-content">
-    <h3>Новый пароль</h3>
+    <h3>Смена пароля</h3>
     <input id="newPasswordInput" type="password" placeholder="Новый пароль" />
     <input id="confirmPasswordInput" type="password" placeholder="Повторите пароль" />
-    <button id="savePasswordBtn">Сохранить</button>
+    <button id="savePasswordBtn">Сохранить пароль</button>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="app.js"></script>
 </body>
 </html>
