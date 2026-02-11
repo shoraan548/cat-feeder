@@ -5,14 +5,18 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // фиксированная таймзона для всей семьи
 const APP_TIMEZONE = "Europe/Podgorica";
 
-const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supa = window.supabase.createClient(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);
 
-const LS_USER_ID = "cat_user_id";
-const LS_NAME = "cat_user_name";
+/* ================= STATE ================= */
 
 let currentCat = null;
-let foodMode = null;
 let editingCatId = null;
+let foodMode = null;
+
+/* ================= HELPERS ================= */
 
 function todayISO() {
   return new Intl.DateTimeFormat("en-CA", {
@@ -23,24 +27,22 @@ function todayISO() {
   }).format(new Date());
 }
 
-function setUser(u) {
-  localStorage.setItem(LS_USER_ID, u.id);
-  localStorage.setItem(LS_NAME, u.full_name);
+async function getCurrentUser() {
+  const { data } = await supa.auth.getUser();
+  return data.user;
 }
 
-function getUser() {
-  const id = localStorage.getItem(LS_USER_ID);
-  const name = localStorage.getItem(LS_NAME);
-  return id && name ? { id, full_name: name } : null;
-}
+async function getProfile() {
+  const user = await getCurrentUser();
+  if (!user) return null;
 
-function clearUser() {
-  localStorage.removeItem(LS_USER_ID);
-  localStorage.removeItem(LS_NAME);
-}
+  const { data } = await supa
+    .from("profiles")
+    .select("username, full_name")
+    .eq("id", user.id)
+    .single();
 
-async function setCurrentUser(userId) {
-  await supa.rpc("set_current_user", { user_uuid: userId });
+  return data;
 }
 
 /* ================= AUTH ================= */
@@ -49,33 +51,45 @@ async function login() {
   const username = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
 
-  const { data } = await supa
-    .from("users")
-    .select("id, full_name, password_hash")
-    .eq("username", username)
-    .limit(1);
+  if (!username || !password) {
+    alert("Введите логин и пароль");
+    return;
+  }
 
-  if (!data?.length) return alert("Неверный логин или пароль");
+  const email = `${username}@local`;
 
-  const ok = (await supa.rpc("verify_password", {
-    p_password: password,
-    p_hash: data[0].password_hash
-  })).data;
+  const { error } = await supa.auth.signInWithPassword({
+    email,
+    password
+  });
 
-  if (!ok) return alert("Неверный логин или пароль");
+  if (error) {
+    alert("Неверный логин или пароль");
+    return;
+  }
 
-  await setCurrentUser(data[0].id);
-  setUser(data[0]);
   showApp();
 }
 
-function showApp() {
-  const u = getUser();
+async function logout() {
+  await supa.auth.signOut();
+  showAuth();
+}
+
+/* ================= UI ================= */
+
+async function showApp() {
   document.getElementById("auth").style.display = "none";
   document.getElementById("app").style.display = "block";
-  document.getElementById("who").textContent = u.full_name;
+
+  const profile = await getProfile();
+
+  document.getElementById("who").textContent =
+    profile?.full_name || "Пользователь";
+
   document.getElementById("todayLine").textContent =
     `Сегодня: ${todayISO()} (${APP_TIMEZONE})`;
+
   loadCat();
 }
 
@@ -84,13 +98,17 @@ function showAuth() {
   document.getElementById("app").style.display = "none";
 }
 
-/* ================= CAT ================= */
+/* ================= CAT LOAD ================= */
 
 async function loadCat() {
-  const u = getUser();
-  await setCurrentUser(u.id);
+  const user = await getCurrentUser();
+  if (!user) return;
 
-  const { data: cats } = await supa.from("cats").select("*").limit(1);
+  const { data: cats } = await supa
+    .from("cats")
+    .select("*")
+    .eq("created_by", user.id)
+    .limit(1);
 
   if (!cats?.length) {
     currentCat = null;
@@ -123,7 +141,9 @@ async function loadCat() {
     <tr><td class="label">Имя</td><td>${currentCat.name}</td></tr>
     <tr><td class="label">Сухой корм</td><td>Осталось: ${Math.max(dryLeft,0)} г</td></tr>
     <tr><td class="label">Влажный корм</td><td>Осталось: ${Math.max(wetLeft,0)} г</td></tr>
-    <tr><td class="label">Последняя кормёжка</td><td>${lastTime ? new Date(lastTime).toLocaleTimeString() : "—"}</td></tr>
+    <tr><td class="label">Последняя кормёжка</td>
+        <td>${lastTime ? new Date(lastTime).toLocaleTimeString() : "—"}</td>
+    </tr>
   `;
 }
 
@@ -154,10 +174,12 @@ async function saveCat() {
   const dry = parseInt(document.getElementById("catDryInput").value, 10);
   const wet = parseInt(document.getElementById("catWetInput").value, 10);
 
-  if (!name || !dry || !wet) return alert("Заполни все поля");
+  if (!name || !dry || !wet) {
+    alert("Заполните все поля");
+    return;
+  }
 
-  const u = getUser();
-  await setCurrentUser(u.id);
+  const user = await getCurrentUser();
 
   if (editingCatId) {
     await supa.from("cats")
@@ -169,8 +191,8 @@ async function saveCat() {
         name,
         dry_limit: dry,
         wet_limit: wet,
-        created_by: u.id
-    });
+        created_by: user.id
+      });
   }
 
   closeCatModal();
@@ -179,12 +201,12 @@ async function saveCat() {
 
 async function deleteCat() {
   if (!editingCatId) return;
+
   if (!confirm("Удалить кота?")) return;
 
-  const u = getUser();
-  await setCurrentUser(u.id);
-
-  await supa.from("cats").delete().eq("id", editingCatId);
+  await supa.from("cats")
+    .delete()
+    .eq("id", editingCatId);
 
   closeCatModal();
   loadCat();
@@ -193,10 +215,17 @@ async function deleteCat() {
 /* ================= FOOD MODAL ================= */
 
 function openFoodModal(mode) {
-  if (!currentCat) return alert("Сначала добавь кота");
+  if (!currentCat) {
+    alert("Сначала добавьте кота");
+    return;
+  }
+
   foodMode = mode;
   document.getElementById("foodModalTitle").textContent =
-    mode === "dry" ? "Добавить сухой корм" : "Добавить влажный корм";
+    mode === "dry"
+      ? "Добавить сухой корм"
+      : "Добавить влажный корм";
+
   document.getElementById("foodGramsInput").value = "";
   document.getElementById("foodModal").style.display = "flex";
 }
@@ -206,12 +235,14 @@ function closeFoodModal() {
 }
 
 async function saveFood() {
-  const grams = parseInt(document.getElementById("foodGramsInput").value, 10);
+  const grams = parseInt(
+    document.getElementById("foodGramsInput").value,
+    10
+  );
+
   if (!grams || grams <= 0) return;
 
-  const u = getUser();
-  await setCurrentUser(u.id);
-
+  const user = await getCurrentUser();
   const today = todayISO();
 
   const { data } = await supa
@@ -221,15 +252,20 @@ async function saveFood() {
     .eq("date", today)
     .limit(1);
 
-  const dry = (data?.[0]?.dry_grams || 0) + (foodMode === "dry" ? grams : 0);
-  const wet = (data?.[0]?.wet_grams || 0) + (foodMode === "wet" ? grams : 0);
+  const dry =
+    (data?.[0]?.dry_grams || 0) +
+    (foodMode === "dry" ? grams : 0);
+
+  const wet =
+    (data?.[0]?.wet_grams || 0) +
+    (foodMode === "wet" ? grams : 0);
 
   await supa.from("daily_feeding").upsert({
     cat_id: currentCat.id,
     date: today,
     dry_grams: dry,
     wet_grams: wet,
-    created_by: u.id,
+    created_by: user.id,
     updated_at: new Date().toISOString()
   });
 
@@ -237,22 +273,48 @@ async function saveFood() {
   loadCat();
 }
 
+/* ================= PROFILE ================= */
+
+async function changeName() {
+  const newName = prompt("Новое имя:");
+  if (!newName) return;
+
+  const user = await getCurrentUser();
+
+  await supa.from("profiles")
+    .update({ full_name: newName })
+    .eq("id", user.id);
+
+  showApp();
+}
+
 /* ================= EVENTS ================= */
 
 document.getElementById("loginBtn").onclick = login;
-document.getElementById("logoutBtn").onclick = () => { clearUser(); showAuth(); };
+document.getElementById("logoutBtn").onclick = logout;
 
-document.getElementById("addCatBtn").onclick = () => openCatModal();
-document.getElementById("editCatBtn").onclick = () => openCatModal(currentCat);
+document.getElementById("addCatBtn").onclick =
+  () => openCatModal();
+
+document.getElementById("editCatBtn").onclick =
+  () => openCatModal(currentCat);
+
 document.getElementById("saveCatBtn").onclick = saveCat;
-document.getElementById("cancelCatBtn").onclick = closeCatModal;
 document.getElementById("deleteCatBtn").onclick = deleteCat;
+document.getElementById("cancelCatBtn").onclick = closeCatModal;
 
-document.getElementById("addDryBtn").onclick = () => openFoodModal("dry");
-document.getElementById("addWetBtn").onclick = () => openFoodModal("wet");
+document.getElementById("addDryBtn").onclick =
+  () => openFoodModal("dry");
+
+document.getElementById("addWetBtn").onclick =
+  () => openFoodModal("wet");
+
 document.getElementById("saveFoodBtn").onclick = saveFood;
 document.getElementById("cancelFoodBtn").onclick = closeFoodModal;
 
 /* ================= START ================= */
 
-getUser() ? showApp() : showAuth();
+(async () => {
+  const user = await getCurrentUser();
+  user ? showApp() : showAuth();
+})();
