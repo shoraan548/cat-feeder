@@ -43,17 +43,44 @@ async function getProfile() {
 /* ================= AUTH ================= */
 
 async function login() {
-  const username = document.getElementById("username").value.trim();
+  const loginInput = document.getElementById("username").value.trim();
   const password = document.getElementById("password").value;
 
-  const email = `${username}@local`;
+  if (!loginInput || !password) {
+    alert("Введите логин и пароль");
+    return;
+  }
 
-  const { error } = await supa.auth.signInWithPassword({
-    email,
-    password
-  });
+  let email = null;
 
-  if (error) return alert("Неверный логин или пароль");
+  // если похоже на email
+  if (loginInput.includes("@")) {
+    email = loginInput;
+  } else {
+    // это username → получаем email через RPC
+    const { data, error } = await supa.rpc(
+      "get_email_by_username",
+      { p_username: loginInput }
+    );
+
+    if (error || !data) {
+      alert("Пользователь не найден");
+      return;
+    }
+
+    email = data;
+  }
+
+  const { error: signError } =
+    await supa.auth.signInWithPassword({
+      email,
+      password
+    });
+
+  if (signError) {
+    alert("Неверный пароль");
+    return;
+  }
 
   showApp();
 }
