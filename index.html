@@ -9,73 +9,141 @@
 <script defer src="app.js"></script>
 
 <style>
-body {
-  font-family: sans-serif;
-  max-width: 500px;
-  margin: auto;
-  padding: 20px;
-}
+  body {
+    font-family: sans-serif;
+    max-width: 520px;
+    margin: 0 auto;
+    padding: 22px;
+    background: #fff;
+  }
 
-h1 { margin-bottom: 5px; }
+  h1 { margin: 0 0 10px; }
+  h2 { margin: 10px 0 10px; font-weight: 700; }
 
-button {
-  padding: 10px;
-  margin: 6px 0;
-  width: 100%;
-  border-radius: 6px;
-  border: 1px solid #ccc;
-  background: #f9f9f9;
-}
+  .small-link {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 14px;
+    opacity: .65;
+    cursor: pointer;
+    user-select: none;
+  }
 
-.row {
-  display: flex;
-  gap: 10px;
-}
+  input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px;
+    margin: 6px 0;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 15px;
+  }
 
-.row button {
-  flex: 1;
-}
+  button {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px 10px;
+    margin: 8px 0;
+    border-radius: 7px;
+    border: 1px solid #bdbdbd;
+    background: #f3f3f3;
+    font-size: 15px;
+    cursor: pointer;
+  }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 15px;
-}
+  .row {
+    display: flex;
+    gap: 10px;
+  }
 
-td {
-  padding: 8px 0;
-  border-bottom: 1px solid #ddd;
-}
+  .row button {
+    flex: 1;
+    margin: 8px 0;
+  }
 
-.label {
-  font-weight: 500;
-  color: #555;
-}
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0 8px;
+  }
 
-.red {
-  color: red;
-  font-weight: 600;
-}
+  td {
+    padding: 10px 6px;
+    border-bottom: 1px solid #e0e0e0;
+    vertical-align: middle;
+  }
 
-select {
-  font-size: 16px;
-}
+  .label { color: #666; width: 45%; }
+  .value { text-align: left; font-weight: 600; }
 
-.modal {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.3);
-  justify-content: center;
-  align-items: center;
-}
+  .red { color: #d32f2f; font-weight: 700; }
 
-.modal-content {
-  background: white;
-  padding: 20px;
-  width: 90%;
-  max-width: 400px;
-}
+  /* select как “текст”, но со стрелкой */
+  .cat-select {
+    appearance: none;
+    -webkit-appearance: none;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-weight: 600;
+    padding-right: 18px;
+    cursor: pointer;
+    outline: none;
+  }
+  .select-wrap {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+  }
+  .select-wrap:after {
+    content: "▾";
+    position: absolute;
+    right: 0;
+    top: 0;
+    color: #777;
+    pointer-events: none;
+  }
+
+  /* warning */
+  #fatWarning {
+    margin: 8px 0 6px;
+  }
+
+  /* Modals */
+  .modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.35);
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    opacity: 0;
+    transition: opacity .18s ease;
+  }
+  .modal.show {
+    display: flex;
+    opacity: 1;
+  }
+  .modal-content {
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    padding: 16px 16px 12px;
+    transform: translateY(14px);
+    transition: transform .18s ease;
+  }
+  .modal.show .modal-content { transform: translateY(0); }
+
+  .modal h3 { margin: 0 0 10px; }
+  .modal .row { margin-top: 8px; }
+  .modal .danger { background: #fff; border-color: #d32f2f; color: #d32f2f; }
+
+  /* History table */
+  .history-table td { border-bottom: 1px solid #eee; padding: 8px 6px; }
+  .muted { opacity: .75; font-weight: 500; }
 </style>
 </head>
 
@@ -83,13 +151,16 @@ select {
 
 <h1>🐱 Кормление кота</h1>
 
+<!-- AUTH -->
 <div id="auth">
   <h2>Вход</h2>
-  <input id="username" placeholder="Email или username" />
-  <input id="password" type="password" placeholder="Пароль" />
+  <input id="username" placeholder="Email или username" autocomplete="username" />
+  <input id="password" type="password" placeholder="Пароль" autocomplete="current-password" />
   <button id="loginBtn">Войти</button>
+  <div id="forgotBtn" class="small-link">Забыли пароль?</div>
 </div>
 
+<!-- APP -->
 <div id="app" style="display:none;">
   <h2>Привет, <span id="who"></span> 👋</h2>
 
@@ -105,12 +176,56 @@ select {
   </div>
 
   <button id="historyBtn">📊 Статистика</button>
-  <button id="editCatBtn">✏ Редактировать</button>
-  <button id="addCatBtn">➕ Добавить кота</button>
+
+  <div class="row">
+    <button id="editCatBtn">✏ Редактировать</button>
+    <button id="addCatBtn">➕ Добавить кота</button>
+  </div>
+
   <button id="logoutBtn">Выйти</button>
 </div>
 
-<!-- Модалки оставляем как были -->
+<!-- CAT MODAL -->
+<div id="catModal" class="modal">
+  <div class="modal-content">
+    <h3 id="catModalTitle">Кот</h3>
+    <input id="catNameInput" placeholder="Имя кота" />
+    <input id="catDryInput" type="number" inputmode="numeric" placeholder="Суточная норма сухого (г)" />
+    <input id="catWetInput" type="number" inputmode="numeric" placeholder="Суточная норма влажного (г)" />
+    <button id="saveCatBtn">Сохранить</button>
+    <button id="deleteCatBtn" class="danger" style="display:none;">Удалить кота</button>
+    <button id="cancelCatBtn">Отмена</button>
+  </div>
+</div>
+
+<!-- FOOD MODAL -->
+<div id="foodModal" class="modal">
+  <div class="modal-content">
+    <h3 id="foodModalTitle">Добавить корм</h3>
+    <input id="foodGramsInput" type="number" inputmode="numeric" placeholder="Граммы" />
+    <button id="saveFoodBtn">Добавить</button>
+    <button id="cancelFoodBtn">Отмена</button>
+  </div>
+</div>
+
+<!-- HISTORY MODAL -->
+<div id="historyModal" class="modal">
+  <div class="modal-content">
+    <h3>Статистика за 6 месяцев</h3>
+    <div id="historyContent" class="muted">Загрузка…</div>
+    <button id="closeHistoryBtn">Закрыть</button>
+  </div>
+</div>
+
+<!-- RESET PASSWORD MODAL -->
+<div id="resetModal" class="modal">
+  <div class="modal-content">
+    <h3>Новый пароль</h3>
+    <input id="newPasswordInput" type="password" placeholder="Новый пароль" autocomplete="new-password" />
+    <input id="confirmPasswordInput" type="password" placeholder="Повторите пароль" autocomplete="new-password" />
+    <button id="savePasswordBtn">Сохранить</button>
+  </div>
+</div>
 
 </body>
 </html>
