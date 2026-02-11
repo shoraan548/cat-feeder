@@ -1,4 +1,4 @@
-// ================== НАСТРОЙКИ ==================
+/* ================== CONFIG ================== */
 const SUPABASE_URL = "https://kuixkqezshxqposjchpa.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt1aXhrcWV6c2h4cXBvc2pjaHBhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAzODA1NDAsImV4cCI6MjA4NTk1NjU0MH0.T7u-MqEkjj5Yohwd3Ys8IIgtr13ISxJEF43nrM1nRZg";
 const APP_TIMEZONE = "Europe/Podgorica";
@@ -43,11 +43,9 @@ async function getProfile() {
   return data;
 }
 
-/* ================= LOGIN ================= */
+/* ================= AUTH ================= */
 
 async function login() {
-  console.log("LOGIN START");
-
   const loginInput =
     document.getElementById("username").value.trim();
   const password =
@@ -63,28 +61,18 @@ async function login() {
   if (loginInput.includes("@")) {
     email = loginInput;
   } else {
-    console.log("Username login detected");
-
     const { data, error } =
       await supa.rpc("get_email_by_username", {
         p_username: loginInput
       });
 
-    if (error) {
-      console.log("RPC error:", error);
-      alert("Ошибка поиска пользователя");
-      return;
-    }
-
-    if (!data) {
+    if (error || !data) {
       alert("Пользователь не найден");
       return;
     }
 
     email = data;
   }
-
-  console.log("AUTH EMAIL:", email);
 
   const { error: signError } =
     await supa.auth.signInWithPassword({
@@ -93,23 +81,17 @@ async function login() {
     });
 
   if (signError) {
-    console.log("AUTH ERROR:", signError);
     alert("Неверный логин или пароль");
     return;
   }
 
-  console.log("LOGIN SUCCESS");
   showApp();
 }
-
-/* ================= LOGOUT ================= */
 
 async function logout() {
   await supa.auth.signOut();
   showAuth();
 }
-
-/* ================= PASSWORD RESET ================= */
 
 async function sendReset() {
   const loginInput =
@@ -145,7 +127,7 @@ async function sendReset() {
   alert("Письмо отправлено");
 }
 
-/* ================= PASSWORD RECOVERY FLOW ================= */
+/* ================= PASSWORD RECOVERY ================= */
 
 function showPasswordResetUI() {
   document.getElementById("auth").style.display = "none";
@@ -179,7 +161,7 @@ async function saveNewPassword() {
     return;
   }
 
-  alert("Пароль успешно изменён");
+  alert("Пароль обновлён");
 
   window.history.replaceState(
     {},
@@ -197,6 +179,7 @@ async function showApp() {
   document.getElementById("app").style.display = "block";
 
   const profile = await getProfile();
+
   document.getElementById("who").textContent =
     profile?.full_name || "Пользователь";
 
@@ -227,6 +210,7 @@ async function loadCat() {
     currentCat = null;
     document.getElementById("catTable").innerHTML =
       `<tr><td class="label">Кот</td><td>Не добавлен</td></tr>`;
+    document.getElementById("fatWarning").style.display = "none";
     return;
   }
 
@@ -258,52 +242,7 @@ async function loadCat() {
   `;
 }
 
-/* ================= AUTH EVENTS ================= */
-
-supa.auth.onAuthStateChange(async (event) => {
-  console.log("AUTH EVENT:", event);
-
-  if (window.location.hash.includes("type=recovery")) {
-    showPasswordResetUI();
-    return;
-  }
-
-  if (event === "SIGNED_IN") {
-    showApp();
-  }
-
-  if (event === "SIGNED_OUT") {
-    showAuth();
-  }
-});
-
-/* ================= EVENTS ================= */
-
-document
-  .getElementById("loginBtn")
-  .addEventListener("click", async (e) => {
-    e.preventDefault();
-    await login();
-  });
-
-document
-  .getElementById("logoutBtn")
-  .addEventListener("click", logout);
-
-document
-  .getElementById("forgotBtn")
-  .addEventListener("click", sendReset);
-
-document
-  .getElementById("savePasswordBtn")
-  .addEventListener("click", saveNewPassword);
-
-/* ================= START ================= */
-
-(async () => {
-  const user = await getUser();
-  user ? showApp() : showAuth();
-})();
+/* ================= CAT MODAL ================= */
 
 function openCatModal(cat = null) {
   document.getElementById("catModal").style.display = "flex";
@@ -393,17 +332,27 @@ async function deleteCat() {
   loadCat();
 }
 
-async function deleteCat() {
-  if (!editingCatId) return;
+/* ================= FOOD ================= */
 
-  if (!confirm("Удалить кота?")) return;
+function openFoodModal(mode) {
+  if (!currentCat) {
+    alert("Сначала добавьте кота");
+    return;
+  }
 
-  await supa.from("cats")
-    .delete()
-    .eq("id", editingCatId);
+  foodMode = mode;
 
-  closeCatModal();
-  loadCat();
+  document.getElementById("foodModalTitle").textContent =
+    mode === "dry"
+      ? "Добавить сухой корм"
+      : "Добавить влажный корм";
+
+  document.getElementById("foodGramsInput").value = "";
+  document.getElementById("foodModal").style.display = "flex";
+}
+
+function closeFoodModal() {
+  document.getElementById("foodModal").style.display = "none";
 }
 
 async function saveFood() {
@@ -445,39 +394,62 @@ async function saveFood() {
   loadCat();
 }
 
-document
-  .getElementById("addCatBtn")
+/* ================= AUTH EVENTS ================= */
+
+supa.auth.onAuthStateChange((event) => {
+  if (window.location.hash.includes("type=recovery")) {
+    showPasswordResetUI();
+    return;
+  }
+
+  if (event === "SIGNED_IN") showApp();
+  if (event === "SIGNED_OUT") showAuth();
+});
+
+/* ================= EVENT LISTENERS ================= */
+
+document.getElementById("loginBtn")
+  .addEventListener("click", login);
+
+document.getElementById("logoutBtn")
+  .addEventListener("click", logout);
+
+document.getElementById("forgotBtn")
+  .addEventListener("click", sendReset);
+
+document.getElementById("savePasswordBtn")
+  .addEventListener("click", saveNewPassword);
+
+document.getElementById("addCatBtn")
   .addEventListener("click", () => openCatModal());
 
-document
-  .getElementById("editCatBtn")
+document.getElementById("editCatBtn")
   .addEventListener("click", () => openCatModal(currentCat));
 
-document
-  .getElementById("saveCatBtn")
+document.getElementById("saveCatBtn")
   .addEventListener("click", saveCat);
 
-document
-  .getElementById("deleteCatBtn")
+document.getElementById("deleteCatBtn")
   .addEventListener("click", deleteCat);
 
-document
-  .getElementById("cancelCatBtn")
+document.getElementById("cancelCatBtn")
   .addEventListener("click", closeCatModal);
 
-document
-  .getElementById("addDryBtn")
+document.getElementById("addDryBtn")
   .addEventListener("click", () => openFoodModal("dry"));
 
-document
-  .getElementById("addWetBtn")
+document.getElementById("addWetBtn")
   .addEventListener("click", () => openFoodModal("wet"));
 
-document
-  .getElementById("saveFoodBtn")
+document.getElementById("saveFoodBtn")
   .addEventListener("click", saveFood);
 
-document
-  .getElementById("cancelFoodBtn")
+document.getElementById("cancelFoodBtn")
   .addEventListener("click", closeFoodModal);
 
+/* ================= START ================= */
+
+(async () => {
+  const user = await getUser();
+  user ? showApp() : showAuth();
+})();
