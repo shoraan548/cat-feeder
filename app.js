@@ -186,17 +186,13 @@ async function saveNewPassword() {
 /* ================= DATA: CATS + FEEDING ================= */
 
 async function loadCats() {
-  const user = await getUser();
-  if (!user) return;
-
   const { data, error } = await supa
     .from("cats")
     .select("*")
-    .eq("created_by", user.id)
     .order("created_at", { ascending: true });
 
   if (error) {
-    console.log("[cats] load error:", error);
+    console.log("cats load error:", error);
     cats = [];
     currentCatId = null;
     return;
@@ -209,7 +205,6 @@ async function loadCats() {
     return;
   }
 
-  // если ещё не выбран или выбранный удалили — ставим первого
   if (!currentCatId || !cats.find(c => c.id === currentCatId)) {
     currentCatId = cats[0].id;
   }
