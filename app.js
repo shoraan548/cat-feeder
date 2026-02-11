@@ -304,3 +304,180 @@ document
   const user = await getUser();
   user ? showApp() : showAuth();
 })();
+
+function openCatModal(cat = null) {
+  document.getElementById("catModal").style.display = "flex";
+
+  if (cat) {
+    editingCatId = cat.id;
+    document.getElementById("catModalTitle").textContent =
+      "Редактировать кота";
+
+    document.getElementById("catNameInput").value = cat.name;
+    document.getElementById("catDryInput").value = cat.dry_limit;
+    document.getElementById("catWetInput").value = cat.wet_limit;
+
+    document.getElementById("deleteCatBtn").style.display =
+      "inline-block";
+  } else {
+    editingCatId = null;
+    document.getElementById("catModalTitle").textContent =
+      "Добавить кота";
+
+    document.getElementById("catNameInput").value = "";
+    document.getElementById("catDryInput").value = "";
+    document.getElementById("catWetInput").value = "";
+
+    document.getElementById("deleteCatBtn").style.display =
+      "none";
+  }
+}
+
+function closeCatModal() {
+  document.getElementById("catModal").style.display = "none";
+}
+
+async function saveCat() {
+  const name =
+    document.getElementById("catNameInput").value.trim();
+
+  const dry = parseInt(
+    document.getElementById("catDryInput").value,
+    10
+  );
+
+  const wet = parseInt(
+    document.getElementById("catWetInput").value,
+    10
+  );
+
+  if (!name || !dry || !wet) {
+    alert("Заполните все поля");
+    return;
+  }
+
+  const user = await getUser();
+
+  if (editingCatId) {
+    await supa.from("cats")
+      .update({
+        name,
+        dry_limit: dry,
+        wet_limit: wet
+      })
+      .eq("id", editingCatId);
+  } else {
+    await supa.from("cats")
+      .insert({
+        name,
+        dry_limit: dry,
+        wet_limit: wet,
+        created_by: user.id
+      });
+  }
+
+  closeCatModal();
+  loadCat();
+}
+
+async function deleteCat() {
+  if (!editingCatId) return;
+
+  if (!confirm("Удалить кота?")) return;
+
+  await supa.from("cats")
+    .delete()
+    .eq("id", editingCatId);
+
+  closeCatModal();
+  loadCat();
+}
+
+async function deleteCat() {
+  if (!editingCatId) return;
+
+  if (!confirm("Удалить кота?")) return;
+
+  await supa.from("cats")
+    .delete()
+    .eq("id", editingCatId);
+
+  closeCatModal();
+  loadCat();
+}
+
+async function saveFood() {
+  const grams = parseInt(
+    document.getElementById("foodGramsInput").value,
+    10
+  );
+
+  if (!grams || grams <= 0) return;
+
+  const user = await getUser();
+  const today = todayISO();
+
+  const { data } = await supa
+    .from("daily_feeding")
+    .select("*")
+    .eq("cat_id", currentCat.id)
+    .eq("date", today)
+    .limit(1);
+
+  const dry =
+    (data?.[0]?.dry_grams || 0) +
+    (foodMode === "dry" ? grams : 0);
+
+  const wet =
+    (data?.[0]?.wet_grams || 0) +
+    (foodMode === "wet" ? grams : 0);
+
+  await supa.from("daily_feeding").upsert({
+    cat_id: currentCat.id,
+    date: today,
+    dry_grams: dry,
+    wet_grams: wet,
+    created_by: user.id,
+    updated_at: new Date().toISOString()
+  });
+
+  closeFoodModal();
+  loadCat();
+}
+
+document
+  .getElementById("addCatBtn")
+  .addEventListener("click", () => openCatModal());
+
+document
+  .getElementById("editCatBtn")
+  .addEventListener("click", () => openCatModal(currentCat));
+
+document
+  .getElementById("saveCatBtn")
+  .addEventListener("click", saveCat);
+
+document
+  .getElementById("deleteCatBtn")
+  .addEventListener("click", deleteCat);
+
+document
+  .getElementById("cancelCatBtn")
+  .addEventListener("click", closeCatModal);
+
+document
+  .getElementById("addDryBtn")
+  .addEventListener("click", () => openFoodModal("dry"));
+
+document
+  .getElementById("addWetBtn")
+  .addEventListener("click", () => openFoodModal("wet"));
+
+document
+  .getElementById("saveFoodBtn")
+  .addEventListener("click", saveFood);
+
+document
+  .getElementById("cancelFoodBtn")
+  .addEventListener("click", closeFoodModal);
+
