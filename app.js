@@ -177,13 +177,42 @@ document.getElementById("savePasswordBtn").onclick = saveNewPassword;
 
 /* ================= AUTH LISTENER ================= */
 
-supa.auth.onAuthStateChange((event) => {
+async function checkRecoveryFromUrl() {
+  const hash = window.location.hash;
+
+  if (hash.includes("type=recovery")) {
+    showPasswordResetUI();
+    return true;
+  }
+
+  return false;
+}
+
+supa.auth.onAuthStateChange(async (event, session) => {
+
   if (event === "PASSWORD_RECOVERY") {
     showPasswordResetUI();
+    return;
+  }
+
+  if (event === "SIGNED_IN") {
+    const isRecovery = await checkRecoveryFromUrl();
+
+    if (!isRecovery) {
+      showApp();
+    }
+  }
+
+  if (event === "SIGNED_OUT") {
+    showAuth();
   }
 });
 
 (async () => {
+  const recoveryHandled = await checkRecoveryFromUrl();
+
+  if (recoveryHandled) return;
+
   const user = await getUser();
   user ? showApp() : showAuth();
 })();
