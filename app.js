@@ -165,7 +165,12 @@ async function saveCat() {
       .eq("id", editingCatId);
   } else {
     await supa.from("cats")
-      .insert({ name, dry_limit: dry, wet_limit: wet });
+      .insert({
+        name,
+        dry_limit: dry,
+        wet_limit: wet,
+        created_by: u.id
+    });
   }
 
   closeCatModal();
