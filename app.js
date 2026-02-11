@@ -8,36 +8,21 @@ const supa = window.supabase.createClient(
   SUPABASE_ANON_KEY
 );
 
-/* ================= STATE ================= */
-
 let currentCat = null;
-let editingCatId = null;
 let foodMode = null;
+let editingCatId = null;
 
 /* ================= HELPERS ================= */
 
 function todayStartISO() {
   const d = new Date();
-  d.setHours(0, 0, 0, 0);
+  d.setHours(0,0,0,0);
   return d.toISOString();
 }
 
 async function getUser() {
   const { data } = await supa.auth.getUser();
   return data.user;
-}
-
-async function getProfile() {
-  const user = await getUser();
-  if (!user) return null;
-
-  const { data } = await supa
-    .from("profiles")
-    .select("full_name")
-    .eq("id", user.id)
-    .single();
-
-  return data;
 }
 
 /* ================= AUTH ================= */
@@ -48,22 +33,17 @@ async function login() {
   const password =
     document.getElementById("password").value;
 
-  if (!loginInput || !password) {
-    alert("Введите логин и пароль");
-    return;
-  }
+  if (!loginInput || !password) return;
 
-  let email;
+  let email = loginInput;
 
-  if (loginInput.includes("@")) {
-    email = loginInput;
-  } else {
-    const { data, error } =
+  if (!loginInput.includes("@")) {
+    const { data } =
       await supa.rpc("get_email_by_username", {
         p_username: loginInput
       });
 
-    if (error || !data) {
+    if (!data) {
       alert("Пользователь не найден");
       return;
     }
@@ -71,13 +51,13 @@ async function login() {
     email = data;
   }
 
-  const { error: signError } =
+  const { error } =
     await supa.auth.signInWithPassword({
       email,
       password
     });
 
-  if (signError) {
+  if (error) {
     alert("Неверный логин или пароль");
     return;
   }
@@ -94,16 +74,11 @@ async function sendReset() {
   const loginInput =
     document.getElementById("username").value.trim();
 
-  if (!loginInput) {
-    alert("Введите email или username");
-    return;
-  }
+  if (!loginInput) return;
 
-  let email;
+  let email = loginInput;
 
-  if (loginInput.includes("@")) {
-    email = loginInput;
-  } else {
+  if (!loginInput.includes("@")) {
     const { data } =
       await supa.rpc("get_email_by_username", {
         p_username: loginInput
@@ -113,7 +88,6 @@ async function sendReset() {
       alert("Пользователь не найден");
       return;
     }
-
     email = data;
   }
 
@@ -124,90 +98,56 @@ async function sendReset() {
   alert("Письмо отправлено");
 }
 
-/* ================= PASSWORD RECOVERY ================= */
-
-function showPasswordResetUI() {
-  document.getElementById("auth").style.display = "none";
-  document.getElementById("app").style.display = "none";
-  document.getElementById("resetModal").style.display = "flex";
-}
-
-async function saveNewPassword() {
-  const pass1 =
-    document.getElementById("newPasswordInput").value;
-  const pass2 =
-    document.getElementById("confirmPasswordInput").value;
-
-  if (!pass1 || pass1.length < 6) {
-    alert("Минимум 6 символов");
-    return;
-  }
-
-  if (pass1 !== pass2) {
-    alert("Пароли не совпадают");
-    return;
-  }
-
-  const { error } =
-    await supa.auth.updateUser({
-      password: pass1
-    });
-
-  if (error) {
-    alert(error.message);
-    return;
-  }
-
-  alert("Пароль обновлён");
-
-  window.history.replaceState(
-    {},
-    document.title,
-    window.location.pathname
-  );
-
-  await supa.auth.signOut();
-}
-
-/* ================= UI ================= */
-
-async function showApp() {
-  document.getElementById("auth").style.display = "none";
-  document.getElementById("app").style.display = "block";
-
-  const profile = await getProfile();
-  document.getElementById("who").textContent =
-    profile?.full_name || "Пользователь";
-
-  loadCat();
-}
-
 function showAuth() {
   document.getElementById("auth").style.display = "block";
   document.getElementById("app").style.display = "none";
 }
 
-/* ================= LOAD CAT ================= */
+async function showApp() {
+  document.getElementById("auth").style.display = "none";
+  document.getElementById("app").style.display = "block";
 
-async function loadCat() {
+  const user = await getUser();
+  document.getElementById("who").textContent =
+    user.email;
+
+  loadCats();
+}
+
+/* ================= CATS ================= */
+
+async function loadCats() {
   const user = await getUser();
   if (!user) return;
 
   const { data } = await supa
     .from("cats")
     .select("*")
-    .eq("created_by", user.id)
-    .limit(1);
+    .eq("created_by", user.id);
+
+  const select = document.getElementById("catSelect");
+  select.innerHTML = "";
 
   if (!data?.length) {
     currentCat = null;
-    document.getElementById("catTable").innerHTML =
-      `<tr><td class="label">Кот</td><td>Не добавлен</td></tr>`;
-    document.getElementById("fatWarning").style.display = "none";
     return;
   }
 
+  data.forEach(cat => {
+    const opt = document.createElement("option");
+    opt.value = cat.id;
+    opt.textContent = cat.name;
+    select.appendChild(opt);
+  });
+
   currentCat = data[0];
+  select.value = currentCat.id;
+
+  loadCat();
+}
+
+async function loadCat() {
+  if (!currentCat) return;
 
   const { data: events } = await supa
     .from("feeding_events")
@@ -218,131 +158,41 @@ async function loadCat() {
 
   const usedDry = events
     ?.filter(e => e.food_type === "dry")
-    .reduce((sum, e) => sum + e.grams, 0) || 0;
+    .reduce((s,e)=>s+e.grams,0) || 0;
 
   const usedWet = events
     ?.filter(e => e.food_type === "wet")
-    .reduce((sum, e) => sum + e.grams, 0) || 0;
-
-  const lastEvent = events?.length
-    ? events[events.length - 1].created_at
-    : null;
+    .reduce((s,e)=>s+e.grams,0) || 0;
 
   const dryLeft = currentCat.dry_limit - usedDry;
   const wetLeft = currentCat.wet_limit - usedWet;
 
   document.getElementById("fatWarning").style.display =
-    (dryLeft < 0 || wetLeft < 0) ? "block" : "none";
+    (dryLeft < 0 || wetLeft < 0)
+      ? "block" : "none";
+
+  function renderValue(value) {
+    if (value >= 0)
+      return `${value} г осталось`;
+    return `<span class="red">${Math.abs(value)} г перебор</span>`;
+  }
 
   document.getElementById("catTable").innerHTML = `
     <tr><td class="label">Имя</td><td>${currentCat.name}</td></tr>
-    <tr><td class="label">Сухой</td><td>${Math.max(dryLeft,0)} г осталось</td></tr>
-    <tr><td class="label">Влажный</td><td>${Math.max(wetLeft,0)} г осталось</td></tr>
-    <tr><td class="label">Последняя кормёжка</td>
-    <td>${lastEvent ? new Date(lastEvent).toLocaleTimeString() : "—"}</td></tr>
+    <tr><td class="label">Сухой</td><td>${renderValue(dryLeft)}</td></tr>
+    <tr><td class="label">Влажный</td><td>${renderValue(wetLeft)}</td></tr>
   `;
-}
-
-/* ================= CAT MODAL ================= */
-
-function openCatModal(cat = null) {
-  document.getElementById("catModal").style.display = "flex";
-
-  if (cat) {
-    editingCatId = cat.id;
-    document.getElementById("catModalTitle").textContent =
-      "Редактировать кота";
-
-    document.getElementById("catNameInput").value = cat.name;
-    document.getElementById("catDryInput").value = cat.dry_limit;
-    document.getElementById("catWetInput").value = cat.wet_limit;
-
-    document.getElementById("deleteCatBtn").style.display =
-      "inline-block";
-  } else {
-    editingCatId = null;
-    document.getElementById("catModalTitle").textContent =
-      "Добавить кота";
-
-    document.getElementById("catNameInput").value = "";
-    document.getElementById("catDryInput").value = "";
-    document.getElementById("catWetInput").value = "";
-
-    document.getElementById("deleteCatBtn").style.display =
-      "none";
-  }
-}
-
-function closeCatModal() {
-  document.getElementById("catModal").style.display = "none";
-}
-
-async function saveCat() {
-  const name =
-    document.getElementById("catNameInput").value.trim();
-  const dry =
-    parseInt(document.getElementById("catDryInput").value, 10);
-  const wet =
-    parseInt(document.getElementById("catWetInput").value, 10);
-
-  if (!name || !dry || !wet) {
-    alert("Заполните все поля");
-    return;
-  }
-
-  const user = await getUser();
-
-  if (editingCatId) {
-    await supa.from("cats")
-      .update({
-        name,
-        dry_limit: dry,
-        wet_limit: wet
-      })
-      .eq("id", editingCatId);
-  } else {
-    await supa.from("cats")
-      .insert({
-        name,
-        dry_limit: dry,
-        wet_limit: wet,
-        created_by: user.id
-      });
-  }
-
-  closeCatModal();
-  loadCat();
-}
-
-async function deleteCat() {
-  if (!editingCatId) return;
-
-  if (!confirm("Удалить кота?")) return;
-
-  await supa.from("cats")
-    .delete()
-    .eq("id", editingCatId);
-
-  closeCatModal();
-  loadCat();
 }
 
 /* ================= FEEDING ================= */
 
 function openFoodModal(mode) {
-  if (!currentCat) {
-    alert("Сначала добавьте кота");
-    return;
-  }
-
+  if (!currentCat) return;
   foodMode = mode;
-
   document.getElementById("foodModalTitle").textContent =
     mode === "dry"
       ? "Добавить сухой корм"
       : "Добавить влажный корм";
-
-  document.getElementById("foodGramsInput").value = "";
   document.getElementById("foodModal").style.display = "flex";
 }
 
@@ -352,43 +202,90 @@ function closeFoodModal() {
 
 async function saveFood() {
   const grams =
-    parseInt(document.getElementById("foodGramsInput").value, 10);
+    parseInt(document.getElementById("foodGramsInput").value,10);
 
   if (!grams || grams <= 0) return;
 
   const user = await getUser();
 
-  const { error } = await supa
-    .from("feeding_events")
-    .insert({
-      cat_id: currentCat.id,
-      food_type: foodMode,
-      grams: grams,
-      created_by: user.id
-    });
-
-  if (error) {
-    alert("Ошибка добавления корма");
-    return;
-  }
+  await supa.from("feeding_events").insert({
+    cat_id: currentCat.id,
+    food_type: foodMode,
+    grams,
+    created_by: user.id
+  });
 
   closeFoodModal();
   loadCat();
 }
 
-/* ================= AUTH EVENTS ================= */
+/* ================= HISTORY ================= */
 
-supa.auth.onAuthStateChange((event) => {
-  if (window.location.hash.includes("type=recovery")) {
-    showPasswordResetUI();
-    return;
+async function openHistory() {
+
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+  const { data } = await supa
+    .from("feeding_events")
+    .select("*")
+    .eq("cat_id", currentCat.id)
+    .gte("created_at", sixMonthsAgo.toISOString());
+
+  if (!data?.length) {
+    document.getElementById("historyContent")
+      .innerHTML = "Нет данных";
+  } else {
+
+    const monthly = {};
+
+    data.forEach(e => {
+      const d = new Date(e.created_at);
+      const key = `${d.getFullYear()}-${d.getMonth()+1}`;
+
+      if (!monthly[key])
+        monthly[key] = {days:new Set(),dry:0,wet:0};
+
+      monthly[key].days.add(d.toDateString());
+
+      if (e.food_type === "dry")
+        monthly[key].dry += e.grams;
+      else
+        monthly[key].wet += e.grams;
+    });
+
+    let html = "<table>";
+
+    Object.keys(monthly).sort().forEach(key => {
+      const days = monthly[key].days.size;
+      const avgDry =
+        Math.round(monthly[key].dry / days);
+      const avgWet =
+        Math.round(monthly[key].wet / days);
+
+      html += `
+        <tr>
+          <td>${key}</td>
+          <td>${avgDry} г сухого</td>
+          <td>${avgWet} г влажного</td>
+        </tr>
+      `;
+    });
+
+    html += "</table>";
+
+    document.getElementById("historyContent")
+      .innerHTML = html;
   }
 
-  if (event === "SIGNED_IN") showApp();
-  if (event === "SIGNED_OUT") showAuth();
-});
+  document.getElementById("historyModal").style.display = "flex";
+}
 
-/* ================= EVENT LISTENERS ================= */
+function closeHistory() {
+  document.getElementById("historyModal").style.display = "none";
+}
+
+/* ================= EVENTS ================= */
 
 document.getElementById("loginBtn")
   .addEventListener("click", login);
@@ -399,29 +296,11 @@ document.getElementById("logoutBtn")
 document.getElementById("forgotBtn")
   .addEventListener("click", sendReset);
 
-document.getElementById("savePasswordBtn")
-  .addEventListener("click", saveNewPassword);
-
-document.getElementById("addCatBtn")
-  .addEventListener("click", () => openCatModal());
-
-document.getElementById("editCatBtn")
-  .addEventListener("click", () => openCatModal(currentCat));
-
-document.getElementById("saveCatBtn")
-  .addEventListener("click", saveCat);
-
-document.getElementById("deleteCatBtn")
-  .addEventListener("click", deleteCat);
-
-document.getElementById("cancelCatBtn")
-  .addEventListener("click", closeCatModal);
-
 document.getElementById("addDryBtn")
-  .addEventListener("click", () => openFoodModal("dry"));
+  .addEventListener("click", ()=>openFoodModal("dry"));
 
 document.getElementById("addWetBtn")
-  .addEventListener("click", () => openFoodModal("wet"));
+  .addEventListener("click", ()=>openFoodModal("wet"));
 
 document.getElementById("saveFoodBtn")
   .addEventListener("click", saveFood);
@@ -429,9 +308,26 @@ document.getElementById("saveFoodBtn")
 document.getElementById("cancelFoodBtn")
   .addEventListener("click", closeFoodModal);
 
+document.getElementById("historyBtn")
+  .addEventListener("click", openHistory);
+
+document.getElementById("closeHistoryBtn")
+  .addEventListener("click", closeHistory);
+
+document.getElementById("catSelect")
+  .addEventListener("change", async (e)=>{
+    const { data } = await supa
+      .from("cats")
+      .select("*")
+      .eq("id", e.target.value)
+      .single();
+    currentCat = data;
+    loadCat();
+  });
+
 /* ================= START ================= */
 
-(async () => {
+(async ()=>{
   const user = await getUser();
   user ? showApp() : showAuth();
 })();
